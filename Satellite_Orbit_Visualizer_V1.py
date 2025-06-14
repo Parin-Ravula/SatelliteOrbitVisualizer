@@ -105,12 +105,10 @@ def graph_circular_orbit(satellite_name, altitude, inclination, raan):
     z_rotation = apply_rotation(raan, "z", x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])
     ax.plot(z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"], zdir='z', linestyle='--', 
             label=f"{satellite_name}'s orbit trajectory")
-
-    
     
 while(True):
     ## Store satellite information provided by user
-    satellite_name = input("Enter satellite name ")
+    satellite_name = input("Enter satellite name: ")
     if satellite_name == "stop":
         break
     eccentricity = float(input("Enter satellite orbit's eccentricity (between 0 and 1): "))
