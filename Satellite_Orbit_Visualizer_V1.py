@@ -126,7 +126,6 @@ import math
 
 
 
-
 ### VERSION 3
 ### ////////////////////////////////////////////////////////////////
 fig = plt.figure()
@@ -166,13 +165,15 @@ def apply_rotation(angle, axis_of_rotation, x, y, z):
     y_trajectory = []
     z_trajectory = []
     
+    ## Apply rotation matrix to each point in the orbit to get the transformed (rotated) trajectory
     for i in range(0,10000):
         orbit_matrix = np.matrix([x[i], y[i], z[i]])
         rotated_matrix = np.round(np.dot(orbit_matrix, rotation_matrix), decimals=10)
         x_trajectory.append(rotated_matrix[0, 0])
         y_trajectory.append(rotated_matrix[0, 1])
         z_trajectory.append(rotated_matrix[0, 2])
-        
+    
+    ## Save rotated points    
     trajectory_plots = {
         "x_trajectory": x_trajectory,
         "y_trajectory": y_trajectory,
@@ -180,20 +181,42 @@ def apply_rotation(angle, axis_of_rotation, x, y, z):
     }
     
     return trajectory_plots
-
+    
+## Graph circular orbit
 def graph_circular_orbit(satellite_name, altitude, inclination, raan):
     total_radius = earth_radius + altitude
     
-    ## Orbit parameters    
+    ## Define orbit parameters    
     x = total_radius * np.cos(theta)
     y = total_radius * np.sin(theta) 
     z = np.zeros(len(x))
     
-    ## Apply rotation about x axis (inclination) and z axis (RAAN) + plot   
+    ## Apply rotation about x axis (inclination) and z axis (RAAN), then plot   
     x_rotation = apply_rotation(inclination, "x", x, y, z) 
     z_rotation = apply_rotation(raan, "z", x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])
-    ax.plot(z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"], zdir='z', linestyle='--', 
-            label=f"{satellite_name}'s orbit trajectory")
+    ax.plot(z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"], 
+            zdir='z', linestyle='--', label=f"{satellite_name}'s orbit trajectory")
+ 
+## Graph elliptical orbit 
+def graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, raan):
+    ## Define & calculate both semi major axis and semi minor axis
+    semi_major_axis = earth_radius + altitude
+    semi_minor_axis = semi_major_axis * math.sqrt(1 - math.pow(eccentricity, 2))
+    
+    ## Define orbit parameters    
+    x = (semi_major_axis) * np.cos(theta)
+    y = (semi_minor_axis) * np.sin(theta)
+    z = np.zeros(len(x))
+    
+    ## Find foci points, center ellipse about negative foci (-c, 0)
+    c = math.sqrt(math.pow((semi_major_axis), 2) - math.pow((semi_minor_axis), 2))
+    x += c
+    
+    ## Apply rotation about x axis (inclination) and z axis (RAAN), then plot 
+    x_rotation = apply_rotation(inclination, "x", x, y, z)
+    z_rotation = apply_rotation(raan, "z", x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])     
+    ax.plot(z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"], 
+            zdir='z', linestyle='--', label=f"{satellite_name}'s orbit trajectory")
     
 while(True):
     ## Store satellite information provided by user
@@ -201,12 +224,17 @@ while(True):
     if satellite_name == "stop":
         break
     eccentricity = float(input("Enter satellite orbit's eccentricity (between 0 and 1): "))
-    altitude = float(input("Enter satellite altitude above the Earth: "))
+    altitude = float(input("Enter satellite's altitude/semi-major-axis above the Earth: "))
     inclination = float(input("Enter satellite orbit's inclination (in degrees): "))
     raan = float(input("Enter the RAAN (rotation of the orbit around the axis of the Earth (in degrees): "))
     
-    ## Plot circular orbit trajectory
-    graph_circular_orbit(satellite_name, altitude, inclination, raan)
+    ## decide orbit's shape
+    if eccentricity == 0:    
+        ## Plot circular orbit trajectory
+        graph_circular_orbit(satellite_name, altitude, inclination, raan)
+    else:
+       ## Plot elliptical orbit trajectory 
+       graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, raan)
 
 ax.set_aspect('equal')
 ax.legend()
