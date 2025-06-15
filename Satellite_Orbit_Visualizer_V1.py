@@ -297,9 +297,9 @@ mass_of_earth = 5.97219 * math.pow(10, 24)
 earth_radius = 6378
 theta = np.linspace(0, 2 * np.pi, 5000)
 
-# Store trajectory data for all orbits to enable simultaneous animation after user input
+## Store trajectory data for all orbits to enable simultaneous animation after user input
 orbits_data = []
-# Keep references to all animation objects
+## Keep references to all animation objects
 animations = []
 
 ## Generate Earth
@@ -349,6 +349,7 @@ def apply_rotation(angle, axis_of_rotation, x, y, z):
     
     return trajectory_plots
 
+## Apply argument of periapsis rotation
 def apply_argument_of_periapsis(angle, x, y, z): 
     rad = np.deg2rad(angle)  
     
@@ -539,7 +540,8 @@ max_frames = max(orbit["frames"] for orbit in orbits_data)
 
 def update(frame):
     for orbit in orbits_data:
-        idx = frame % orbit["frames"]   # Each satellite loops independently
+        ## Allow satelleties to loop independently 
+        idx = frame % orbit["frames"]   
         orbit["satellite"].set_data_3d([orbit["x"][idx]], [orbit["y"][idx]], [orbit["z"][idx]])
         orbit["trail"].set_data_3d(orbit["x"][:idx+1], orbit["y"][:idx+1], orbit["z"][:idx+1])
     return [o["satellite"] for o in orbits_data] + [o["trail"] for o in orbits_data]
