@@ -286,8 +286,8 @@ import math
 
 
 
-### VERSION 4
-### ////////////////////////////////////////////////////////////////
+##### VERSION 4
+##### ////////////////////////////////////////////////////////////////
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
@@ -296,6 +296,11 @@ gravitational_constant = 6.6743 * math.pow(10, -11)
 mass_of_earth = 5.97219 * math.pow(10, 24)
 earth_radius = 6378
 theta = np.linspace(0, 2 * np.pi, 5000)
+
+# Store trajectory data for all orbits to enable simultaneous animation after user input
+orbits_data = []
+# Keep references to all animation objects
+animations = []
 
 ## Generate Earth
 u = np.linspace(0, 2 * np.pi, 100)
@@ -347,7 +352,6 @@ def apply_rotation(angle, axis_of_rotation, x, y, z):
 def apply_argument_of_periapsis(angle, x, y, z): 
     rad = np.deg2rad(angle)  
     
-    
     ## Find axis of rotation
     vec1 = [x[600] - x[250], y[600] - y[250], z[600] - z[250]]
     vec2 = [x[900] - x[250], y[900] - y[250], z[900] - z[250]]
@@ -383,7 +387,8 @@ def apply_argument_of_periapsis(angle, x, y, z):
     }
     
     return trajectory_plots  
-       
+
+## Determine orbital period of orbit       
 def get_orbital_period(semi_major_axis):
     a = semi_major_axis * 1000  # convert to meters
     return 2 * np.pi * np.sqrt(a**3 / (gravitational_constant * mass_of_earth))    
@@ -395,11 +400,12 @@ reference_period = get_orbital_period(reference_semi_major)
 reference_anim_duration = 5 
 time_scale = reference_anim_duration / reference_period
 
+## Calculate animation duration
 def get_anim_duration(semi_major_axis_km):
     real_period = get_orbital_period(semi_major_axis_km)
     return real_period * time_scale  # seconds
 
-animations = []
+## Determine orbit animation details 
 def animate_orbit(x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
     N = len(x_traj)
     total_frames = int(desired_anim_duration * fps)
@@ -407,26 +413,16 @@ def animate_orbit(x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
     x_anim = np.array(x_traj)[indices]
     y_anim = np.array(y_traj)[indices]
     z_anim = np.array(z_traj)[indices]
-    animated_orbit, = ax.plot([], [], [], color='blue', lw=1.5)
+    trail, = ax.plot([], [], [], color='blue', lw=1.5)
     satellite, = ax.plot([], [], [], 'o', markersize=8, color='red')
-    def init():
-        animated_orbit.set_data_3d([], [], [])
-        satellite.set_data_3d([], [], [])
-        return satellite, animated_orbit
-    def update(frame):
-        idx = frame
-        satellite.set_data_3d([x_anim[idx]], [y_anim[idx]], [z_anim[idx]])
-        animated_orbit.set_data_3d(x_anim[:idx+1], y_anim[:idx+1], z_anim[:idx+1])
-        return satellite, animated_orbit
-    ani = FuncAnimation(
-        fig,
-        update,
-        frames=total_frames,
-        init_func=init,
-        interval=1000 / fps,
-        blit=True
-    )
-    animations.append(ani)
+    orbits_data.append({
+        "x": x_anim,
+        "y": y_anim,
+        "z": z_anim,
+        "trail": trail,
+        "satellite": satellite,
+        "frames": total_frames
+    })
     
 ## Graph circular orbit
 def graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis):
@@ -496,7 +492,7 @@ def graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, 
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
             zdir='z', linestyle='--', label=f"{satellite_name}'s orbit trajectory")
 
-    
+## Compute velocity (magnitude only) at each orbital position for circular orbits
 def determine_velocity_circular(r):
     all_velocities = []
 
@@ -506,6 +502,7 @@ def determine_velocity_circular(r):
     
     return all_velocities
         
+## Compute velocity (magnitude only) at each orbital position for elliptical orbits        
 def determine_velocity_elliptical(semi_major_axis, x, y, z):
     all_velocities = []
 
@@ -515,9 +512,10 @@ def determine_velocity_elliptical(semi_major_axis, x, y, z):
         all_velocities.append(vel)
         
     return all_velocities
-    
+
+## User input loop for orbit visualization 
 while(True):
-    ## Store satellite information provided by user
+    ## Store satellite parameters provided by user
     satellite_name = input("Enter satellite name: ")
     if satellite_name == "stop":
         break
@@ -527,7 +525,7 @@ while(True):
     raan = float(input("Enter the RAAN (rotation of the orbit around the axis of the Earth (in degrees): "))
     periapsis = float(input("Enter the argument of periapsis (rotation of the orbit around the axis of the Earth (in degrees): "))
     
-    ## Decide orbit's shape
+    ## Determine orbit type/shape and generate corresponding trajectory
     if eccentricity == 0:    
         ## Plot circular orbit trajectory
         graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis)
@@ -535,7 +533,29 @@ while(True):
        ## Plot elliptical orbit trajectory 
        graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, raan, periapsis)
 
+### Animation functionality START -------------------
+## Find the maximum number of frames needed for any orbit
+max_frames = max(orbit["frames"] for orbit in orbits_data)
+
+def update(frame):
+    for orbit in orbits_data:
+        idx = frame % orbit["frames"]   # Each satellite loops independently
+        orbit["satellite"].set_data_3d([orbit["x"][idx]], [orbit["y"][idx]], [orbit["z"][idx]])
+        orbit["trail"].set_data_3d(orbit["x"][:idx+1], orbit["y"][:idx+1], orbit["z"][:idx+1])
+    return [o["satellite"] for o in orbits_data] + [o["trail"] for o in orbits_data]
+
+
+ani = FuncAnimation(
+    fig,
+    update,
+    frames=None,
+    interval=1000/60,
+    blit=True
+)
+### Animation functionality END -------------------
+
+## Plot orbits
 ax.set_aspect('equal')
 ax.legend()
 plt.show()
-### ////////////////////////////////////////////////////////////////
+##### ////////////////////////////////////////////////////////////////
