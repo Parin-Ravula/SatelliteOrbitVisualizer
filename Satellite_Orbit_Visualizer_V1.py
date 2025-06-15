@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import math
 
 ### VERSION 1
@@ -265,7 +266,7 @@ import math
 #     if satellite_name == "stop":
 #         break
 #     eccentricity = float(input("Enter satellite orbit's eccentricity (between 0 and 1): "))
-#     altitude = float(input("Enter satellite's altitude/semi-major-axis above the Earth: "))
+#    altitude = float(input("Enter satellite's maximum altitude above the Earth: "))
 #     inclination = float(input("Enter satellite orbit's inclination (in degrees): "))
 #     raan = float(input("Enter the RAAN (rotation of the orbit around the axis of the Earth (in degrees): "))
 #     periapsis = float(input("Enter the argument of periapsis (rotation of the orbit around the axis of the Earth (in degrees): "))
@@ -291,8 +292,10 @@ fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
 
 ## Global variables defined
+gravitational_constant = 6.6743 * math.pow(10, -11)
+mass_of_earth = 5.97219 * math.pow(10, 24)
 earth_radius = 6378
-theta = np.linspace(0, 2 * np.pi, 10000)
+theta = np.linspace(0, 2 * np.pi, 5000)
 
 ## Generate Earth
 u = np.linspace(0, 2 * np.pi, 100)
@@ -325,7 +328,7 @@ def apply_rotation(angle, axis_of_rotation, x, y, z):
     z_trajectory = []
     
     ## Apply rotation matrix to each point in the orbit to get the transformed (rotated) trajectory
-    for i in range(0,10000):
+    for i in range(len(x)):
         orbit_matrix = np.matrix([x[i], y[i], z[i]])
         rotated_matrix = np.round(np.dot(orbit_matrix, rotation_matrix), decimals=10)
         x_trajectory.append(rotated_matrix[0, 0])
@@ -343,10 +346,11 @@ def apply_rotation(angle, axis_of_rotation, x, y, z):
 
 def apply_argument_of_periapsis(angle, x, y, z): 
     rad = np.deg2rad(angle)  
-     
+    
+    
     ## Find axis of rotation
-    vec1 = [x[1000] - x[250], y[1000] - y[250], z[1000] - z[250]]
-    vec2 = [x[5000] - x[250], y[5000] - y[250], z[5000] - z[250]]
+    vec1 = [x[600] - x[250], y[600] - y[250], z[600] - z[250]]
+    vec2 = [x[900] - x[250], y[900] - y[250], z[900] - z[250]]
     
     ## Take cross product to find normal vector, then normalize
     normal_vector = np.cross(vec1, vec2)
@@ -358,7 +362,7 @@ def apply_argument_of_periapsis(angle, x, y, z):
     z_trajectory = []
     
     ## Apply rotation matrix to each point in the orbit to get the transformed (rotated) trajectory
-    for i in range(0,10000):
+    for i in range(0,5000):
         v = np.array([x[i], y[i], z[i]])
         k = normal_vector
         
@@ -379,6 +383,50 @@ def apply_argument_of_periapsis(angle, x, y, z):
     }
     
     return trajectory_plots  
+       
+def get_orbital_period(semi_major_axis):
+    a = semi_major_axis * 1000  # convert to meters
+    return 2 * np.pi * np.sqrt(a**3 / (gravitational_constant * mass_of_earth))    
+
+# Reference: LEO at 400 km altitude
+reference_altitude = 400
+reference_semi_major = earth_radius + reference_altitude
+reference_period = get_orbital_period(reference_semi_major)  
+reference_anim_duration = 5 
+time_scale = reference_anim_duration / reference_period
+
+def get_anim_duration(semi_major_axis_km):
+    real_period = get_orbital_period(semi_major_axis_km)
+    return real_period * time_scale  # seconds
+
+animations = []
+def animate_orbit(x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
+    N = len(x_traj)
+    total_frames = int(desired_anim_duration * fps)
+    indices = np.linspace(0, N-1, total_frames).astype(int)
+    x_anim = np.array(x_traj)[indices]
+    y_anim = np.array(y_traj)[indices]
+    z_anim = np.array(z_traj)[indices]
+    animated_orbit, = ax.plot([], [], [], color='blue', lw=1.5)
+    satellite, = ax.plot([], [], [], 'o', markersize=8, color='red')
+    def init():
+        animated_orbit.set_data_3d([], [], [])
+        satellite.set_data_3d([], [], [])
+        return satellite, animated_orbit
+    def update(frame):
+        idx = frame
+        satellite.set_data_3d([x_anim[idx]], [y_anim[idx]], [z_anim[idx]])
+        animated_orbit.set_data_3d(x_anim[:idx+1], y_anim[:idx+1], z_anim[:idx+1])
+        return satellite, animated_orbit
+    ani = FuncAnimation(
+        fig,
+        update,
+        frames=total_frames,
+        init_func=init,
+        interval=1000 / fps,
+        blit=True
+    )
+    animations.append(ani)
     
 ## Graph circular orbit
 def graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis):
@@ -389,10 +437,25 @@ def graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis)
     y = total_radius * np.sin(theta) 
     z = np.zeros(len(x))
     
-    ## Apply rotation about x axis (inclination) and z axis (RAAN), then plot   
+    ## Apply rotation about x axis (inclination) and z axis (RAAN) 
     x_rotation = apply_rotation(inclination, "x", x, y, z) 
     z_rotation = apply_rotation(raan, "z", x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])
     periapsis_rotation = apply_argument_of_periapsis(periapsis, z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])  
+    
+    ## Calculate velocities
+    determine_velocity_circular(total_radius)
+    
+    ## Create animation of orbit
+    anim_duration = get_anim_duration(total_radius)
+    animate_orbit(
+        periapsis_rotation["x_trajectory"], 
+        periapsis_rotation["y_trajectory"], 
+        periapsis_rotation["z_trajectory"],
+        desired_anim_duration=anim_duration,
+        fps=60
+    )
+
+    ## Plot orbit trajectory
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
             zdir='z', linestyle='--', label=f"{satellite_name}'s orbit trajectory")
  
@@ -411,12 +474,47 @@ def graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, 
     c = math.sqrt(math.pow((semi_major_axis), 2) - math.pow((semi_minor_axis), 2))
     x += c
     
-    ## Apply rotation about x axis (inclination) and z axis (RAAN), then plot 
+    ## Apply rotation about x axis (inclination) and z axis (RAAN) 
     x_rotation = apply_rotation(inclination, "x", x, y, z)
     z_rotation = apply_rotation(raan, "z", x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])
     periapsis_rotation = apply_argument_of_periapsis(periapsis, z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])     
+
+    ## Calculate velocities
+    determine_velocity_elliptical(semi_major_axis, periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"])
+
+    ## Create animation of orbit
+    anim_duration = get_anim_duration(semi_major_axis)
+    animate_orbit(
+        periapsis_rotation["x_trajectory"], 
+        periapsis_rotation["y_trajectory"], 
+        periapsis_rotation["z_trajectory"],
+        desired_anim_duration=anim_duration,
+        fps=60
+    )
+
+    ## Plot orbit trajectory
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
             zdir='z', linestyle='--', label=f"{satellite_name}'s orbit trajectory")
+
+    
+def determine_velocity_circular(r):
+    all_velocities = []
+
+    for i in range (0, 5000):
+        vel = math.sqrt((gravitational_constant * mass_of_earth) / r)
+        all_velocities.append(vel)
+    
+    return all_velocities
+        
+def determine_velocity_elliptical(semi_major_axis, x, y, z):
+    all_velocities = []
+
+    for i in range (0, 5000):
+        r = math.sqrt(x[i]**2 +  y[i]**2 + z[i]**2)
+        vel = math.sqrt((gravitational_constant * mass_of_earth) * ((2 / r) - (1 / semi_major_axis)))
+        all_velocities.append(vel)
+        
+    return all_velocities
     
 while(True):
     ## Store satellite information provided by user
@@ -424,7 +522,7 @@ while(True):
     if satellite_name == "stop":
         break
     eccentricity = float(input("Enter satellite orbit's eccentricity (between 0 and 1): "))
-    altitude = float(input("Enter satellite's altitude/semi-major-axis above the Earth: "))
+    altitude = float(input("Enter satellite's maximum altitude above the Earth: "))
     inclination = float(input("Enter satellite orbit's inclination (in degrees): "))
     raan = float(input("Enter the RAAN (rotation of the orbit around the axis of the Earth (in degrees): "))
     periapsis = float(input("Enter the argument of periapsis (rotation of the orbit around the axis of the Earth (in degrees): "))
