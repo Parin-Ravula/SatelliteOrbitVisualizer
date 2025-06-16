@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from mpl_toolkits.mplot3d import proj3d
 import math
 
 ### VERSION 1
@@ -407,7 +408,7 @@ def get_anim_duration(semi_major_axis_km):
     return real_period * time_scale  # seconds
 
 ## Determine orbit animation details 
-def animate_orbit(x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
+def animate_orbit(satellite_name, x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
     N = len(x_traj)
     total_frames = int(desired_anim_duration * fps)
     indices = np.linspace(0, N-1, total_frames).astype(int)
@@ -416,12 +417,17 @@ def animate_orbit(x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
     z_anim = np.array(z_traj)[indices]
     trail, = ax.plot([], [], [], color='blue', lw=1.5)
     satellite, = ax.plot([], [], [], 'o', markersize=8, color='red')
+    label = ax.text2D(0, 0, satellite_name, fontsize=9, color='black',
+                  bbox=dict(boxstyle='round,pad=0.6', fc='white', ec='black', lw=1, alpha=0.8),
+                  ha='left', va='center')
+
     orbits_data.append({
         "x": x_anim,
         "y": y_anim,
         "z": z_anim,
         "trail": trail,
         "satellite": satellite,
+        "label": label,  
         "frames": total_frames
     })
     
@@ -445,6 +451,7 @@ def graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis)
     ## Create animation of orbit
     anim_duration = get_anim_duration(total_radius)
     animate_orbit(
+        satellite_name,
         periapsis_rotation["x_trajectory"], 
         periapsis_rotation["y_trajectory"], 
         periapsis_rotation["z_trajectory"],
@@ -482,6 +489,7 @@ def graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, 
     ## Create animation of orbit
     anim_duration = get_anim_duration(semi_major_axis)
     animate_orbit(
+        satellite_name,
         periapsis_rotation["x_trajectory"], 
         periapsis_rotation["y_trajectory"], 
         periapsis_rotation["z_trajectory"],
@@ -540,12 +548,21 @@ max_frames = max(orbit["frames"] for orbit in orbits_data)
 
 def update(frame):
     for orbit in orbits_data:
-        ## Allow satelleties to loop independently 
-        idx = frame % orbit["frames"]   
+        idx = frame % orbit["frames"]
+        # Update satellite and trail
         orbit["satellite"].set_data_3d([orbit["x"][idx]], [orbit["y"][idx]], [orbit["z"][idx]])
         orbit["trail"].set_data_3d(orbit["x"][:idx+1], orbit["y"][:idx+1], orbit["z"][:idx+1])
-    return [o["satellite"] for o in orbits_data] + [o["trail"] for o in orbits_data]
-
+        
+        # Project 3D position to 2D screen coordinates
+        x2, y2, _ = proj3d.proj_transform(
+            orbit["x"][idx], orbit["y"][idx], orbit["z"][idx], ax.get_proj()
+        )
+        orbit["label"].set_position((x2, y2))  # Update 2D label position
+    return (
+        [o["satellite"] for o in orbits_data] +
+        [o["trail"] for o in orbits_data] +
+        [o["label"] for o in orbits_data]
+    )
 
 ani = FuncAnimation(
     fig,
