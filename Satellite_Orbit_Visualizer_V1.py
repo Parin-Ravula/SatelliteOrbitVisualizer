@@ -2,7 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import proj3d
-import plotly
+from mpl_toolkits.mplot3d import Axes3D
+import plotly 
+import plotly.graph_objects as go
 import math
 
 ### VERSION 1
@@ -292,6 +294,11 @@ import math
 ##### ////////////////////////////////////////////////////////////////
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
+fig.patch.set_facecolor('black')
+ax.set_facecolor('black') 
+ax.xaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))  
+ax.yaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))
+ax.zaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))
 
 ## Global variables defined
 gravitational_constant = 6.6743 * math.pow(10, -11)
@@ -310,7 +317,16 @@ v = np.linspace(0, np.pi, 100)
 earth_x = earth_radius * np.outer(np.cos(u), np.sin(v))
 earth_y = earth_radius * np.outer(np.sin(u), np.sin(v))
 earth_z = earth_radius * np.outer(np.ones(np.size(u)), np.cos(v))
-ax.plot_surface(earth_x, earth_y, earth_z, color="skyblue", alpha=0.5)
+ax.plot_surface(earth_x, earth_y, earth_z, color="skyblue", alpha=0.7)
+
+## Determine orbit trajectories & corresponding animation's colors
+color_index = 0
+
+def apply_orbit_color(color_index):
+    colors = ["lime", "crimson", "gold", "mediumorchid", "orange", "hotpink", "chartreuse", "magenta", "white", "springgreen"]
+    chosen_color = colors[color_index % 10]
+    return chosen_color
+
 
 ## Apply rotations to orbit's plane
 def apply_rotation(angle, axis_of_rotation, x, y, z):
@@ -409,14 +425,14 @@ def get_anim_duration(semi_major_axis_km):
     return real_period * time_scale  # seconds
 
 ## Determine orbit animation details 
-def animate_orbit(satellite_name, x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
+def animate_orbit(satellite_name, orbit_color, x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
     N = len(x_traj)
     total_frames = int(desired_anim_duration * fps)
     indices = np.linspace(0, N-1, total_frames).astype(int)
     x_anim = np.array(x_traj)[indices]
     y_anim = np.array(y_traj)[indices]
     z_anim = np.array(z_traj)[indices]
-    trail, = ax.plot([], [], [], color='blue', lw=1.5)
+    trail, = ax.plot([], [], [], color=orbit_color, lw=2.5)
     satellite, = ax.plot([], [], [], 'o', markersize=8, color='red')
     label = ax.text2D(0, 0, satellite_name, fontsize=9, color='black',
                   bbox=dict(boxstyle='round,pad=0.6', fc='white', ec='black', lw=1, alpha=0.8),
@@ -433,7 +449,7 @@ def animate_orbit(satellite_name, x_traj, y_traj, z_traj, desired_anim_duration=
     })
     
 ## Graph circular orbit
-def graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis):
+def graph_circular_orbit(satellite_name, orbit_color, altitude, inclination, raan, periapsis):
     total_radius = earth_radius + altitude
     
     ## Define orbit parameters    
@@ -453,6 +469,7 @@ def graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis)
     anim_duration = get_anim_duration(total_radius)
     animate_orbit(
         satellite_name,
+        apply_orbit_color(color_index),
         periapsis_rotation["x_trajectory"], 
         periapsis_rotation["y_trajectory"], 
         periapsis_rotation["z_trajectory"],
@@ -462,10 +479,10 @@ def graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis)
 
     ## Plot orbit trajectory
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
-            zdir='z', linestyle='--', label=f"{satellite_name}'s orbit trajectory")
+            zdir='z', color=orbit_color, alpha=0.4, label=f"{satellite_name}'s orbit trajectory")
  
 ## Graph elliptical orbit 
-def graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, raan, periapsis):
+def graph_elliptical_orbit(satellite_name, orbit_color, eccentricity, altitude, inclination, raan, periapsis):
     ## Define & calculate both semi major axis and semi minor axis
     semi_major_axis = earth_radius + altitude
     semi_minor_axis = semi_major_axis * math.sqrt(1 - math.pow(eccentricity, 2))
@@ -491,6 +508,7 @@ def graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, 
     anim_duration = get_anim_duration(semi_major_axis)
     animate_orbit(
         satellite_name,
+        apply_orbit_color(color_index),
         periapsis_rotation["x_trajectory"], 
         periapsis_rotation["y_trajectory"], 
         periapsis_rotation["z_trajectory"],
@@ -500,7 +518,7 @@ def graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, 
 
     ## Plot orbit trajectory
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
-            zdir='z', linestyle='--', label=f"{satellite_name}'s orbit trajectory")
+            zdir='z', color=orbit_color, alpha=0.4, label=f"{satellite_name}'s orbit trajectory")
 
 ## Compute velocity (magnitude only) at each orbital position for circular orbits
 def determine_velocity_circular(r):
@@ -538,10 +556,12 @@ while(True):
     ## Determine orbit type/shape and generate corresponding trajectory
     if eccentricity == 0:    
         ## Plot circular orbit trajectory
-        graph_circular_orbit(satellite_name, altitude, inclination, raan, periapsis)
+        graph_circular_orbit(satellite_name, apply_orbit_color(color_index), altitude, inclination, raan, periapsis)
     else:
        ## Plot elliptical orbit trajectory 
-       graph_elliptical_orbit(satellite_name, eccentricity, altitude, inclination, raan, periapsis)
+       graph_elliptical_orbit(satellite_name, apply_orbit_color(color_index), eccentricity, altitude, inclination, raan, periapsis)
+    
+    color_index += 1
 
 ### Animation functionality START -------------------
 ## Find the maximum number of frames needed for any orbit
