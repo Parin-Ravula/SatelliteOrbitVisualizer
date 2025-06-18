@@ -84,11 +84,63 @@ ax.plot_surface(earth_x, earth_y, earth_z, color="skyblue", alpha=0.4)
 ## Determine orbit trajectories & corresponding animation's colors
 color_index = 0
 
+
+
 ## Determine & set color of specific orbit 
 def apply_orbit_color(color_index):
     colors = ["lime", "crimson", "gold", "mediumorchid", "orange", "hotpink", "chartreuse", "magenta", "white", "springgreen"]
     chosen_color = colors[color_index % 10]
     return chosen_color
+
+
+
+## Determine orbital period of orbit       
+def get_orbital_period(semi_major_axis):
+    a = semi_major_axis * 1000  # convert to meters
+    return 2 * np.pi * np.sqrt(a**3 / (gravitational_constant * mass_of_earth))    
+
+
+
+# Reference: LEO at 400 km altitude
+reference_altitude = 400
+reference_semi_major = earth_radius + reference_altitude
+reference_period = get_orbital_period(reference_semi_major)  
+reference_anim_duration = 5 
+time_scale = reference_anim_duration / reference_period
+
+
+
+## Calculate animation duration
+def get_anim_duration(semi_major_axis_km):
+    real_period = get_orbital_period(semi_major_axis_km)
+    return real_period * time_scale 
+
+
+
+## Compute velocity (magnitude only) at each orbital position for circular orbits
+def determine_velocity_circular(r):
+    all_velocities = []
+
+    for i in range (0, 5000):
+        vel = math.sqrt((gravitational_constant * mass_of_earth) / r)
+        all_velocities.append(vel)
+    
+    return all_velocities
+ 
+ 
+        
+## Compute velocity (magnitude only) at each orbital position for elliptical orbits        
+def determine_velocity_elliptical(semi_major_axis, x, y, z):
+    all_velocities = []
+
+    for i in range (0, 5000):
+        r = math.sqrt(x[i]**2 +  y[i]**2 + z[i]**2)
+        vel = math.sqrt((gravitational_constant * mass_of_earth) * ((2 / r) - (1 / semi_major_axis)))
+        all_velocities.append(vel)
+        
+    return all_velocities
+
+
 
 ## Apply rotations to orbit's plane
 def apply_rotation(angle, axis_of_rotation, x, y, z):
@@ -128,6 +180,8 @@ def apply_rotation(angle, axis_of_rotation, x, y, z):
     }
     
     return trajectory_plots
+
+
 
 ## Apply argument of periapsis rotation
 def apply_argument_of_periapsis(angle, x, y, z): 
@@ -169,22 +223,22 @@ def apply_argument_of_periapsis(angle, x, y, z):
     
     return trajectory_plots  
 
-## Determine orbital period of orbit       
-def get_orbital_period(semi_major_axis):
-    a = semi_major_axis * 1000  # convert to meters
-    return 2 * np.pi * np.sqrt(a**3 / (gravitational_constant * mass_of_earth))    
 
-# Reference: LEO at 400 km altitude
-reference_altitude = 400
-reference_semi_major = earth_radius + reference_altitude
-reference_period = get_orbital_period(reference_semi_major)  
-reference_anim_duration = 5 
-time_scale = reference_anim_duration / reference_period
 
-## Calculate animation duration
-def get_anim_duration(semi_major_axis_km):
-    real_period = get_orbital_period(semi_major_axis_km)
-    return real_period * time_scale  # seconds
+## Plot satellite ground track by projecting 3D orbit onto Earth's 2D map
+def graph_satellite_ground_visualization(orbit_color, x, y, z):     
+    
+    x = np.array(x)
+    y = np.array(y)
+    z = np.array(z)
+
+    r = np.sqrt(x**2 + y**2 + z**2)
+    lat = np.degrees(np.arcsin(z / r))
+    lon = np.degrees(np.arctan2(y, x))
+
+    gt.plot(lon, lat, linewidth=2.5, color=orbit_color)
+
+
 
 ## Determine orbit animation details 
 def animate_orbit(satellite_name, orbit_color, x_traj, y_traj, z_traj, desired_anim_duration=10, fps=60):
@@ -209,45 +263,20 @@ def animate_orbit(satellite_name, orbit_color, x_traj, y_traj, z_traj, desired_a
         "label": label,  
         "frames": total_frames
     })
+
+
+
+## Prepare orbit visualization by applying transformations and setting up trajectory
+def process_and_visualize_orbit(satellite_name, orbit_color, altitude_or_semi_major, inclination, raan, periapsis, x, y, z):
+    total_radius = earth_radius + altitude_or_semi_major
     
-def graph_satellite_ground_visualization(orbit_color, x, y, z):     
-    
-    # x = np.array(ground_track_data[0]["x"])
-    # y = np.array(ground_track_data[0]["y"])
-    # z = np.array(ground_track_data[0]["z"])
-
-    x = np.array(x)
-    y = np.array(y)
-    z = np.array(z)
-
-
-    r = np.sqrt(x**2 + y**2 + z**2)
-    lat = np.degrees(np.arcsin(z / r))
-    lon = np.degrees(np.arctan2(y, x))
-
-
-
-    gt.plot(lon, lat, linewidth=2.5, color=orbit_color)
-    
-## Graph circular orbit
-def graph_circular_orbit(satellite_name, orbit_color, altitude, inclination, raan, periapsis):
-    total_radius = earth_radius + altitude
-    
-    ## Define orbit parameters    
-    x = total_radius * np.cos(theta)
-    y = total_radius * np.sin(theta) 
-    z = np.zeros(len(x))
-    
-    ## Apply rotation about x axis (inclination) and z axis (RAAN)     
+    ## Apply rotation about x axis (inclination) and z axis (RAAN & Argument of Periapsis)     
     z_rotation = apply_rotation(raan, "z", x, y, z) 
     x_rotation = apply_rotation(inclination, "x", z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])
-    
     periapsis_rotation = apply_argument_of_periapsis(periapsis, x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])  
     
+    ## Plot satellite's ground track on the Earth 
     graph_satellite_ground_visualization(orbit_color, periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"])
-    
-    ## Calculate velocities
-    determine_velocity_circular(total_radius)
     
     ## Create animation of orbit
     anim_duration = get_anim_duration(total_radius)
@@ -265,6 +294,21 @@ def graph_circular_orbit(satellite_name, orbit_color, altitude, inclination, raa
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
             zdir='z', color=orbit_color, alpha=0.4)
     
+
+
+## Graph circular orbit
+def graph_circular_orbit(satellite_name, orbit_color, altitude, inclination, raan, periapsis):
+    total_radius = earth_radius + altitude
+    
+    ## Define orbit parameters    
+    x = total_radius * np.cos(theta)
+    y = total_radius * np.sin(theta) 
+    z = np.zeros(len(x))
+    
+    ## Plot orbit trajectory and set up components for animation
+    process_and_visualize_orbit(satellite_name, orbit_color, altitude, inclination, raan, periapsis, x, y, z)
+    
+
  
 ## Graph elliptical orbit 
 def graph_elliptical_orbit(satellite_name, orbit_color, eccentricity, altitude, inclination, raan, periapsis):
@@ -281,53 +325,10 @@ def graph_elliptical_orbit(satellite_name, orbit_color, eccentricity, altitude, 
     c = math.sqrt(math.pow((semi_major_axis), 2) - math.pow((semi_minor_axis), 2))
     x += c
     
-    ## Apply rotation about x axis (inclination) and z axis (RAAN) 
-    z_rotation = apply_rotation(raan, "z", x, y, z) 
-    x_rotation = apply_rotation(inclination, "x", z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])
+    ## Plot orbit trajectory and set up components for animation
+    process_and_visualize_orbit(satellite_name, orbit_color, semi_major_axis, inclination, raan, periapsis, x, y, z)
     
-    periapsis_rotation = apply_argument_of_periapsis(periapsis, x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])    
-    
-    graph_satellite_ground_visualization(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"])
 
-    ## Calculate velocities
-    determine_velocity_elliptical(semi_major_axis, periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"])
-
-    ## Create animation of orbit
-    anim_duration = get_anim_duration(semi_major_axis)
-    animate_orbit(
-        satellite_name,
-        apply_orbit_color(color_index),
-        periapsis_rotation["x_trajectory"], 
-        periapsis_rotation["y_trajectory"], 
-        periapsis_rotation["z_trajectory"],
-        desired_anim_duration=anim_duration,
-        fps=60
-    )
-
-    ## Plot orbit trajectory
-    ax.plot(orbit_color, periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
-            zdir='z', color=orbit_color, alpha=0.4)
-
-## Compute velocity (magnitude only) at each orbital position for circular orbits
-def determine_velocity_circular(r):
-    all_velocities = []
-
-    for i in range (0, 5000):
-        vel = math.sqrt((gravitational_constant * mass_of_earth) / r)
-        all_velocities.append(vel)
-    
-    return all_velocities
-        
-## Compute velocity (magnitude only) at each orbital position for elliptical orbits        
-def determine_velocity_elliptical(semi_major_axis, x, y, z):
-    all_velocities = []
-
-    for i in range (0, 5000):
-        r = math.sqrt(x[i]**2 +  y[i]**2 + z[i]**2)
-        vel = math.sqrt((gravitational_constant * mass_of_earth) * ((2 / r) - (1 / semi_major_axis)))
-        all_velocities.append(vel)
-        
-    return all_velocities
 
 ## User input loop for orbit visualization 
 while(True):
@@ -350,6 +351,8 @@ while(True):
        graph_elliptical_orbit(satellite_name, apply_orbit_color(color_index), eccentricity, altitude, inclination, raan, periapsis)
     
     color_index += 1
+
+
 
 ### Animation functionality START -------------------
 ## Find the maximum number of frames needed for any orbit
