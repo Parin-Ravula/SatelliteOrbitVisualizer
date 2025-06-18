@@ -8,14 +8,58 @@ import plotly.graph_objects as go
 import math
 
 ##### VERSION 5
+fig = plt.figure(figsize=(18, 6))  
 
-fig = plt.figure()
-ax = fig.add_subplot(projection='3d')
+# 3D subplot - orbit simulations
+ax = fig.add_subplot(1, 2, 1, projection='3d')
+ax.set_position([-0.02, 0.1, 0.32, 0.8])  
+
+## Set position labels & simulation title
+ax.set_xlabel('X (km)', labelpad=10)
+ax.set_ylabel('Y (km)', labelpad=10)
+ax.set_zlabel('Z (km)', labelpad=10)
+ax.set_title('Satellite Orbit Visualization')
+
+## Change color of 3D graph to black, mimicking space 
 fig.patch.set_facecolor('black')
 ax.set_facecolor('black') 
 ax.xaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))  
 ax.yaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))
 ax.zaxis.set_pane_color((0.0, 0.0, 0.0, 1.0))
+
+## Change color of axis labels and title to white
+ax.xaxis.label.set_color('white')
+ax.yaxis.label.set_color('white')
+ax.zaxis.label.set_color('white')
+ax.title.set_color('white')
+ax.tick_params(colors='white')
+
+# 2D subplot - ground track visualization
+gt = fig.add_subplot(1, 2, 2)
+gt.set_position([0.38, 0.15, 0.60, 0.7])  
+
+## Set longitude and latitude limits for full Earth map
+gt.set_xlim(-180, 180)
+gt.set_ylim(-90, 90)
+
+## Add axis labels and map title
+gt.set_xlabel('Longitude (deg)')
+gt.set_ylabel('Latitude (deg)')
+gt.set_title('Ground Track Map')
+
+## Change color of axis labels and title to white
+gt.xaxis.label.set_color('white')
+gt.yaxis.label.set_color('white')
+gt.title.set_color('white')
+gt.tick_params(colors='white')
+
+# Add Earth map background to 2d graph 
+img = plt.imread(r'C:\Users\Parin Ravula\OneDrive\Desktop\Aerospace Projects\Python\Satellite_Orbit_Visualizer\world_map.jpg')
+gt.imshow(img, extent=[-180, 180, -90, 90], aspect='auto', zorder=0)
+
+## Adjust 2D graph settings
+gt.set_aspect('auto') 
+gt.grid(True, color='white', linewidth=0.5, alpha=0.5)
 
 ## Global variables defined
 gravitational_constant = 6.6743 * math.pow(10, -11)
@@ -34,16 +78,16 @@ v = np.linspace(0, np.pi, 100)
 earth_x = earth_radius * np.outer(np.cos(u), np.sin(v))
 earth_y = earth_radius * np.outer(np.sin(u), np.sin(v))
 earth_z = earth_radius * np.outer(np.ones(np.size(u)), np.cos(v))
-ax.plot_surface(earth_x, earth_y, earth_z, color="skyblue", alpha=0.7)
+ax.plot_surface(earth_x, earth_y, earth_z, color="skyblue", alpha=0.4)
 
 ## Determine orbit trajectories & corresponding animation's colors
 color_index = 0
 
+## Determine & set color of specific orbit 
 def apply_orbit_color(color_index):
     colors = ["lime", "crimson", "gold", "mediumorchid", "orange", "hotpink", "chartreuse", "magenta", "white", "springgreen"]
     chosen_color = colors[color_index % 10]
     return chosen_color
-
 
 ## Apply rotations to orbit's plane
 def apply_rotation(angle, axis_of_rotation, x, y, z):
@@ -196,7 +240,7 @@ def graph_circular_orbit(satellite_name, orbit_color, altitude, inclination, raa
 
     ## Plot orbit trajectory
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
-            zdir='z', color=orbit_color, alpha=0.4, label=f"{satellite_name}'s orbit trajectory")
+            zdir='z', color=orbit_color, alpha=0.4)
  
 ## Graph elliptical orbit 
 def graph_elliptical_orbit(satellite_name, orbit_color, eccentricity, altitude, inclination, raan, periapsis):
@@ -235,7 +279,7 @@ def graph_elliptical_orbit(satellite_name, orbit_color, eccentricity, altitude, 
 
     ## Plot orbit trajectory
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
-            zdir='z', color=orbit_color, alpha=0.4, label=f"{satellite_name}'s orbit trajectory")
+            zdir='z', color=orbit_color, alpha=0.4)
 
 ## Compute velocity (magnitude only) at each orbital position for circular orbits
 def determine_velocity_circular(r):
