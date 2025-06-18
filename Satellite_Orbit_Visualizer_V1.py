@@ -3,11 +3,10 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d import proj3d
 from mpl_toolkits.mplot3d import Axes3D
-import plotly 
-import plotly.graph_objects as go
 import math
 
 ##### VERSION 5
+
 fig = plt.figure(figsize=(18, 6))  
 
 # 3D subplot - orbit simulations
@@ -43,9 +42,9 @@ gt.set_xlim(-180, 180)
 gt.set_ylim(-90, 90)
 
 ## Add axis labels and map title
-gt.set_xlabel('Longitude (deg)')
-gt.set_ylabel('Latitude (deg)')
-gt.set_title('Ground Track Map')
+gt.set_xlabel('Longitude (°)')
+gt.set_ylabel('Latitude (°)')
+gt.set_title('Satellite Ground Track')
 
 ## Change color of axis labels and title to white
 gt.xaxis.label.set_color('white')
@@ -69,6 +68,8 @@ theta = np.linspace(0, 2 * np.pi, 5000)
 
 ## Store trajectory data for all orbits to enable simultaneous animation after user input
 orbits_data = []
+##
+ground_track_data = []
 ## Keep references to all animation objects
 animations = []
 
@@ -218,10 +219,17 @@ def graph_circular_orbit(satellite_name, orbit_color, altitude, inclination, raa
     y = total_radius * np.sin(theta) 
     z = np.zeros(len(x))
     
-    ## Apply rotation about x axis (inclination) and z axis (RAAN) 
-    x_rotation = apply_rotation(inclination, "x", x, y, z) 
-    z_rotation = apply_rotation(raan, "z", x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])
-    periapsis_rotation = apply_argument_of_periapsis(periapsis, z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])  
+    ## Apply rotation about x axis (inclination) and z axis (RAAN)     
+    z_rotation = apply_rotation(raan, "z", x, y, z) 
+    x_rotation = apply_rotation(inclination, "x", z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])
+    
+    periapsis_rotation = apply_argument_of_periapsis(periapsis, x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])  
+    
+    ground_track_data.append({
+        "x": periapsis_rotation["x_trajectory"],
+        "y": periapsis_rotation["y_trajectory"], 
+        "z": periapsis_rotation["z_trajectory"],
+    })
     
     ## Calculate velocities
     determine_velocity_circular(total_radius)
@@ -258,9 +266,16 @@ def graph_elliptical_orbit(satellite_name, orbit_color, eccentricity, altitude, 
     x += c
     
     ## Apply rotation about x axis (inclination) and z axis (RAAN) 
-    x_rotation = apply_rotation(inclination, "x", x, y, z)
-    z_rotation = apply_rotation(raan, "z", x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])
-    periapsis_rotation = apply_argument_of_periapsis(periapsis, z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])     
+    z_rotation = apply_rotation(raan, "z", x, y, z) 
+    x_rotation = apply_rotation(inclination, "x", z_rotation["x_trajectory"], z_rotation["y_trajectory"], z_rotation["z_trajectory"])
+    
+    periapsis_rotation = apply_argument_of_periapsis(periapsis, x_rotation["x_trajectory"], x_rotation["y_trajectory"], x_rotation["z_trajectory"])    
+    
+    ground_track_data.append({
+        "x": periapsis_rotation["x_trajectory"],
+        "y": periapsis_rotation["y_trajectory"], 
+        "z": periapsis_rotation["z_trajectory"],
+    })
 
     ## Calculate velocities
     determine_velocity_elliptical(semi_major_axis, periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"])
@@ -280,6 +295,11 @@ def graph_elliptical_orbit(satellite_name, orbit_color, eccentricity, altitude, 
     ## Plot orbit trajectory
     ax.plot(periapsis_rotation["x_trajectory"], periapsis_rotation["y_trajectory"], periapsis_rotation["z_trajectory"], 
             zdir='z', color=orbit_color, alpha=0.4)
+
+def satellite_ground_tracker(orbit_color):
+    
+    print(5)
+
 
 ## Compute velocity (magnitude only) at each orbital position for circular orbits
 def determine_velocity_circular(r):
@@ -354,6 +374,20 @@ ani = FuncAnimation(
     blit=True
 )
 ### Animation functionality END -------------------
+
+x = np.array(ground_track_data[0]["x"])
+y = np.array(ground_track_data[0]["y"])
+z = np.array(ground_track_data[0]["z"])
+
+
+r = np.sqrt(x**2 + y**2 + z**2)
+lat = np.degrees(np.arcsin(z / r))
+lon = np.degrees(np.arctan2(y, x))
+
+print(x[0], y[0], z[0])
+
+gt.plot(lon, lat, linewidth=1.5, color='dodgerblue')
+
 
 ## Plot orbits
 ax.set_aspect('equal')
